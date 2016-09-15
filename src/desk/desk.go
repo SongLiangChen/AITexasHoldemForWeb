@@ -6,14 +6,11 @@ package desk
 import ("fmt"
 		"ai"
 		"dealmachine"
-		//"card"
 		"player"
-		//"hand"
 		"encoding/xml"
 		"websocket"
+		"public"
 )
-
-var CARDTYPE = []string{"", "高牌", "一对", "两对", "三条", "顺子", "同花", "葫芦", "四条", "同花顺", "皇家同花顺"}
 
 const (
 	STATE_INIT = 0
@@ -27,9 +24,9 @@ type HTMLData struct{
 	XMLName xml.Name     `xml:"htmldata"`
 	AiChip int           `xml:"aichip"`
 	GambPool int         `xml:"gambpool"`
-	CommityCards string  `xml:"commitycards"`
+	CommityCards []int   `xml:"commitycards"`
 	PlayerChip int       `xml:"playerchip"`
-	PlayerHold string    `xml:"playerhole"`
+	PlayerHold []int    `xml:"playerhole"`
 	Prompt string        `xml:"prompt"`
 }
 
@@ -78,7 +75,6 @@ func (d *Desk)receive()BetInfo{
 		return BetInfo{}
 	}
 	b := new(BetInfo)
-	fmt.Println("recive ", reply)
 	err := xml.Unmarshal([]byte(reply), b)
 	if err != nil{
 		fmt.Println(err)
@@ -93,7 +89,7 @@ func (d *Desk)send() bool{
 	if msg, err = xml.Marshal(*d.dd); err != nil{
 		return false
 	}
-	fmt.Println("xml ",string(msg))
+	//fmt.Println("xml ",string(msg))
 	xmlData = string(msg)
 	if err = websocket.Message.Send(d.ws, xmlData); err != nil{
 		d.offline = true
@@ -263,101 +259,55 @@ func (d *Desk)PlayGame(){
 	}
 }
 
-func (d *Desk)chipIn() int{
-
+func (d *Desk)playerStake() int{
 	var fcr int
 	var bet int
 	var betinfo BetInfo
-	if d.current == 0{
-		d.packageData()
-		d.dd.Prompt = "玩家请下注"
+	d.packageData()
+	d.dd.Prompt = "玩家请下注"
+	if d.send(); d.offline == true{
+		return 0
+	}
+	for{
+		if betinfo = d.receive(); d.offline == true{
+			return 0
+		}
+		if betinfo.Fold == 1 || betinfo.Bet > 0{
+			break
+		}
 		d.send()
-		if d.offline == true{
-			return 0
-		}
-		for{
-			betinfo = d.receive()
-			if d.offline == true{
-				return 0
-			}
-			if betinfo.Fold == 1 || betinfo.Bet > 0{
-				break
-			}
-			d.send()
-		}
-		if betinfo.Fold == 1{
-			playerfold(d)
-			return 0
-		}
-		
-		bet = betinfo.Bet
+	}
+	if betinfo.Fold == 1{
+		playerfold(d)
+		return 0
+	}
+	
+	if bet = betinfo.Bet; bet >= d.p.GetChip(){
+		bet = d.p.GetChip()
+		d.playerAllIn = true
+	}
 
-		if bet >= d.p.GetChip(){
-			bet = d.p.GetChip()
-			d.playerAllIn = true
-		}
-		fcr = d.aai.FCR(bet, d.gambpool, d.dm)
-		if fcr == 0{
-			aifold(d)
-			return 0
-		}
-		if fcr >= d.aai.GetChip(){
-			fcr = d.aai.GetChip()
-			d.aiAllin = true
-		}
-		if d.playerAllIn == false && fcr > bet{
-			d.current = 1
-			d.packageData()
-			d.dd.Prompt = fmt.Sprintf("电脑加注为：%d,是否跟注？", fcr)
-			d.send()
-			if d.offline == true{
-				return 0
-			}
-
-			for {
-				betinfo = d.receive()
-				if d.offline == true{
-					return 0
-				}
-				if betinfo.Call == 1 || betinfo.Fold == 1{
-					break
-				}
-				d.send()
-			}
-			if betinfo.Fold == 1{
-				playerfold(d)
-				return 0
-			}
-			if fcr >= d.p.GetChip(){
-				bet = d.p.GetChip()
-				d.playerAllIn = true
-			}else{
-				bet = fcr
-			}
-		}
-	}else{
-		fcr = d.aai.FCR(0, d.gambpool, d.dm)
-		if fcr == 0{
-			aifold(d)
-			return 0
-		}
-		if fcr >= d.aai.GetChip(){
-			fcr = d.aai.GetChip()
-			d.aiAllin = true
-		}
+	if fcr = d.aai.FCR(bet, d.gambpool, d.dm); fcr == 0{
+		aifold(d)
+		return 0
+	}
+	if fcr >= d.aai.GetChip(){
+		fcr = d.aai.GetChip()
+		d.aiAllin = true
+	}
+	if d.playerAllIn == false && fcr > bet{
+		d.current = 1
 		d.packageData()
-		d.dd.Prompt = fmt.Sprintf("电脑加注为：%d,请加注或者跟注,加注不能小于%d", fcr, fcr)
-		d.send()
-		if d.offline == true{
+		d.dd.Prompt = fmt.Sprintf("电脑加注为：%d,是否跟注？", fcr)
+		if d.send(); d.offline == true{
 			return 0
 		}
 
 		for {
-			betinfo = d.receive()
-			if d.offline == true{
+			if betinfo = d.receive(); d.offline == true{
 				return 0
 			}
-			if betinfo.Call == 1 || betinfo.Fold == 1 || betinfo.Bet >= fcr{
+			if betinfo.Call == 1 || betinfo.Fold == 1{
 				break
 			}
 			d.send()
@@ -366,29 +316,11 @@ func (d *Desk)chipIn() int{
 			playerfold(d)
 			return 0
 		}
-		if betinfo.Call == 1{
-			bet = fcr
-		}else{
-			bet = betinfo.Bet
-		}
-		
-		if bet >= d.p.GetChip(){
+		if fcr >= d.p.GetChip(){
 			bet = d.p.GetChip()
 			d.playerAllIn = true
-		}
-
-		if fcr < bet && d.aiAllin == false{
-			tmp := d.aai.FCR(bet, d.gambpool+bet, d.dm)
-			if tmp==0 {
-				aifold(d)
-				return 0
-			}
-			if bet>=d.aai.GetChip(){
-				fcr = d.aai.GetChip()
-				d.aiAllin = true
-			}else{
-				fcr = bet
-			}
+		}else{
+			bet = fcr
 		}
 	}
 	if d.aiAllin == true || d.playerAllIn == true{
@@ -396,6 +328,79 @@ func (d *Desk)chipIn() int{
 			return bet
 		}
 		return fcr
+	}
+	return bet
+}
+
+func (d *Desk)aiStake() int{
+	var fcr int
+	var bet int
+	var betinfo BetInfo
+	if fcr = d.aai.FCR(0, d.gambpool, d.dm); fcr == 0{
+		aifold(d)
+		return 0
+	}
+	if fcr >= d.aai.GetChip(){
+		fcr = d.aai.GetChip()
+		d.aiAllin = true
+	}
+	d.packageData()
+	d.dd.Prompt = fmt.Sprintf("电脑加注为：%d,请加注或者跟注,加注不能小于%d", fcr, fcr)
+	if d.send(); d.offline == true{
+		return 0
+	}
+
+	for {
+		if betinfo = d.receive(); d.offline == true{
+			return 0
+		}
+		if betinfo.Call == 1 || betinfo.Fold == 1 || betinfo.Bet >= fcr || betinfo.Bet >= d.p.GetChip(){
+			break
+		}
+		d.send()
+	}
+	if betinfo.Fold == 1{
+		playerfold(d)
+		return 0
+	}
+	if betinfo.Call == 1{
+		bet = fcr
+	}else{
+		bet = betinfo.Bet
+	}
+	
+	if bet >= d.p.GetChip(){
+		bet = d.p.GetChip()
+		d.playerAllIn = true
+	}
+
+	if fcr < bet && d.aiAllin == false{
+		if tmp := d.aai.FCR(bet, d.gambpool+bet, d.dm); tmp==0 {
+			aifold(d)
+			return 0
+		}
+		if bet>=d.aai.GetChip(){
+			fcr = d.aai.GetChip()
+			d.aiAllin = true
+		}else{
+			fcr = bet
+		}
+	}
+	if d.aiAllin == true || d.playerAllIn == true{
+		if bet < fcr{
+			return bet
+		}
+		return fcr
+	}
+	return fcr
+}
+
+func (d *Desk)chipIn() int{
+	var bet int
+	if d.current == 0{
+		bet = d.playerStake()
+	}else{
+		bet = d.aiStake()
 	}
 	return bet
 }
@@ -483,7 +488,7 @@ func playerwin(d *Desk){
 	d.dd.Prompt = "玩家牌大，电脑手牌为："
 	d.dd.Prompt += d.aai.GetHole()
 	d.dd.Prompt += "  牌型为："
-	d.dd.Prompt += CARDTYPE[d.aai.GetLevel()]
+	d.dd.Prompt += public.CARDTYPE[d.aai.GetLevel()]
 	d.dd.Prompt += "  点击重新发牌继续"
 }
 
@@ -495,7 +500,7 @@ func playerfail(d *Desk){
 	d.dd.Prompt = "电脑牌大，电脑手牌为："
 	d.dd.Prompt += d.aai.GetHole()
 	d.dd.Prompt += "  牌型为："
-	d.dd.Prompt += CARDTYPE[d.aai.GetLevel()]
+	d.dd.Prompt += public.CARDTYPE[d.aai.GetLevel()]
 	d.dd.Prompt += "  点击重新发牌继续"
 	d.send()
 	d.receive()

@@ -7,6 +7,7 @@ import ("card"
 		"errors"
 		"fmt"
 		"sort"
+		"public"
 )
 
 
@@ -175,18 +176,8 @@ func (h *Hand)AnalyseHand() error{
 	return nil
 }
 
-var SUITNAME = []string{"黑桃", "红桃", "梅花", "方块"}
-func (h *Hand)ShowHand(){
-	//fmt.Printf("%d %d\n",h.Level, h.FinalValue)
-	for i:=0; i<len(h.cards); i++{
-		fmt.Printf("%s %s, ",SUITNAME[h.cards[i].Suit], RANKNAME[h.cards[i].Value])
-	}
-	fmt.Println()
-}
-
-var RANKNAME = []string{"2","3","4","5","6","7","8","9","10","J","Q","K","A"}
 func (h *Hand) GetHole()string{
-	return fmt.Sprintf("%s %s、%s %s  ",SUITNAME[h.hole[0].Suit], RANKNAME[h.hole[0].Value], SUITNAME[h.hole[1].Suit], RANKNAME[h.hole[1].Value])
+	return fmt.Sprintf("%s %s、%s %s  ",public.SUITNAME[h.hole[0].Suit], public.RANKNAME[h.hole[0].Value], public.SUITNAME[h.hole[1].Suit], public.RANKNAME[h.hole[1].Value])
 }
 
 func turnToValue(cards card.Cards) int{

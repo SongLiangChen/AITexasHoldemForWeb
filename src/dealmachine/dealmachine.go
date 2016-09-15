@@ -7,7 +7,6 @@ import ("card"
 		"time"
 		"errors"
 		"math/rand"
-		"fmt"
 )
 	
 type DealMachine struct{
@@ -101,11 +100,4 @@ func (dm *DealMachine) swapCard(a int, b int){
 	dm.cards[b] = tmp
 }
 
-var SUITNAME = []string{"Spade", "Heart", "Club", "Diamond"}
-func (dm *DealMachine) ShowCards(){
-	for i:=0; i<card.SUITSIZE*card.CARDRANK; i++{
-		fmt.Printf("%s %d, ",SUITNAME[dm.cards[i].Suit], dm.cards[i].Value)
-	}
-	fmt.Println()
-}
 

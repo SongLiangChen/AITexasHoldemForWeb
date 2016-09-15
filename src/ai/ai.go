@@ -37,10 +37,6 @@ func (ai *AI)Init(){
 	ai.h.Init()
 }
 
-func (ai *AI)ShowHand(){
-	ai.h.ShowHand()
-}
-
 func (ai *AI)SetHole(c1 *card.Card, c2 *card.Card){
 	ai.hole[0] = c1
 	ai.hole[1] = c2
@@ -81,11 +77,11 @@ func (ai *AI)FCR(bet int, gambpool int, dm *dealmachine.DealMachine) int{  //ret
 	if (ai.chip-bet)<400 && strength<0.5{
 		return 0
 	}
-	if strength>=0.9{
-		return ai.chip
+	if strength>=0.9 || (strength>=0.5 && ai.chip >= 8000) {
+		return 10000-ai.chip
 	}
 	if bet==0 {
-		if strength < 0.5{
+		if strength < 0.5 && gambpool == 200 {
 			return 0
 		}
 		RR := 1.3
@@ -94,21 +90,25 @@ func (ai *AI)FCR(bet int, gambpool int, dm *dealmachine.DealMachine) int{  //ret
 		return int(res)
 	}else {
 		RR := strength*(float64(bet)+float64(gambpool))/float64(bet)
-		fmt.Printf("RR %f, strength %f\n", RR, strength)
+
 		source := rand.NewSource(time.Now().UnixNano())
 		r := rand.New(source)
 		p := r.Int()%100
-		if strength>0.7 && p>=30{
-			return bet
+		fmt.Printf("%0.2f %0.2f %d\n", RR, strength, p)
+		highw := false
+		if strength>0.7{
+			highw = true
 		}
 		if RR <0.8 {
-			if p >= 5{
+			if p >= 5 && highw == false{
+				fmt.Println(1)
 				return 0
 			}else {
 				return bet*2
 			}
 		}else if RR>=0.8 && RR<1.0 {
-			if p>=20 {
+			if p>=20 && highw == false {
+				fmt.Println(2)
 				return 0
 			}else if p<5 {
 				return bet
@@ -129,6 +129,7 @@ func (ai *AI)FCR(bet int, gambpool int, dm *dealmachine.DealMachine) int{  //ret
 			}
 		}
 	}
+	fmt.Println("zero")
 	return 0
 }
 
@@ -142,7 +143,6 @@ func (ai *AI)getStrength(dm *dealmachine.DealMachine) float64{
 			fmt.Println(err)
 			return 0
 		}
-		//fmt.Println("go")
 		go simulate(ai, ddm, c)
 	}
 
@@ -154,7 +154,6 @@ func (ai *AI)getStrength(dm *dealmachine.DealMachine) float64{
 		}
 		t := <-c
 		count++
-		//fmt.Println(count)
 		wintime += t
 	}
 
@@ -199,28 +198,19 @@ func simulate(ai *AI, dm *dealmachine.DealMachine, c chan int){
 			count++
 		}
 	}
-	//fmt.Println("go over")
 	c <- count
 
-}
-
-func (ai *AI)ShowChip(){
-	fmt.Printf("电脑本金还剩：%d\n",ai.chip)
 }
 
 func (ai *AI) GetHole()string{
 	return ai.h.GetHole()
 }
 
-var RANKNAME = []string{"2","3","4","5","6","7","8","9","10","J","Q","K","A"}
-var SUITNAME = []string{"黑桃", "红桃", "梅花", "方块"}
-func (ai *AI)GetCommityCards() string{
-	res := ""
+func (ai *AI)GetCommityCards() []int{
+	res := make([]int, ai.com_size)
 	for i:=0; i<ai.com_size; i++{
-		//fmt.Printf("%s %s     ", SUITNAME[ai.communitycards[i].Suit], RANKNAME[ai.communitycards[i].Value])
-		res += SUITNAME[ai.communitycards[i].Suit]+RANKNAME[ai.communitycards[i].Value]+"  "
+		res[i] = ai.communitycards[i].Suit*card.CARDRANK+ai.communitycards[i].Value
 	}
-	//fmt.Println()
 	return res
 }
 

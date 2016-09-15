@@ -67,12 +67,10 @@ func (p *Player)ShowChip(){
 	fmt.Printf("你的本金还剩：%d\n", p.chip)
 }
 
-var RANKNAME = []string{"2","3","4","5","6","7","8","9","10","J","Q","K","A"}
-var SUITNAME = []string{"黑桃", "红桃", "梅花", "方块"}
-func (p *Player) GetHoleCards() string{
-	res := ""
-	//fmt.Printf("你的手牌为：%s %s、%s %s\n",SUITNAME[p.hole[0].Suit], RANKNAME[p.hole[0].Value], SUITNAME[p.hole[1].Suit], RANKNAME[p.hole[1].Value])
-	res += SUITNAME[p.hole[0].Suit]+RANKNAME[p.hole[0].Value]+"   "+SUITNAME[p.hole[1].Suit]+RANKNAME[p.hole[1].Value]
+func (p *Player) GetHoleCards() []int{
+	res := make([]int, 2)
+	res[0] = p.hole[0].Suit*card.CARDRANK+p.hole[0].Value
+	res[1] = p.hole[1].Suit*card.CARDRANK+p.hole[1].Value
 	return res
 }
 
