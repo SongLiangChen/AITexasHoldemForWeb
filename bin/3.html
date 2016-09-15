@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    <meta charset="utf-8">
+    <title>德州扑克</title>
+    </head>
+    <body>
+        <h1>TexasHoldem Poler</h1>
+        <p>*******************************************************</p>
+        <table border="0">
+            <tr>
+                <td>电脑剩余赌注：</td>
+                <td id="aichip">321</td>
+            </tr>
+        </table>
+        <br />
+        <br />
+        <table border="0">
+            <tr>
+                <td>当前赌池：</td>
+                <td id="gambpool">123</td>
+            </tr>
+        </table>
+        <p>当前公牌：</p>
+        <li id="commitycards">
+            <img id="img1" height=105 src="http://127.0.0.1:8080/sourse?id=0.jpg" width=75 border=0>&nbsp;</img>
+            <img id="img2" height=105 src="http://127.0.0.1:8080/sourse?id=0.jpg" width=75 border=0>&nbsp;</img>
+        </li>
+        <br />
+        <br />
+        <table border="0">
+            <tr>
+                <td>剩余赌注：</td>
+                <td id="playerchip">333</td>
+            </tr>
+        </table>
+        <p>手牌：</p>
+        <li id="playerhole">
+            <img id="img1" height=105 src="http://127.0.0.1:8080/sourse?id=0.jpg" width=75 border=0>&nbsp;</img>
+        </li>
+        <p>*******************************************************</p>
+        <p id="prompt">电脑下注332，是否跟牌？加注请输入，并点击确定</p>
+        <p>*******************************************************</p>
+        <table border="0">
+            <tr>
+                <td>
+                    <p>下注:<input id="bet" type="text"></p>
+                </td>
+                <td>
+                    <button onclick="send_comfirm();">确定</button>
+                </td>
+                <td>
+                    <button onclick="send_call()";>跟牌</button>
+                </td>
+                <td>
+                    <button onclick="send_fold()";>弃牌</button>
+                </td>
+                <td>
+                    <button onclick="send_restart();">重新发牌</button>
+                </td>
+            </tr>
+        </table>
+    </body>
+    <script type="text/javascript" defer=true>
+            var sock = null;        
+            var wsuri = "ws://127.0.0.1:8080/con";
+            var flag = true
+
+            window.onload = function() {
+                console.log("onload");
+
+                if('WebSocket' in window)
+                    sock = new WebSocket(wsuri);
+                else if('MozWebSocket' in window)
+                    sock = new MozWebSocket(wsuri);
+
+                sock.onopen = function() {        
+                    console.log("connected to " + wsuri);
+                }
+
+                sock.onclose = function(e) {
+                    console.log("connection closed (" + e.code + ")");
+                }
+
+                sock.onmessage = function(e) {
+
+                    console.log("connection onmessage (" + e.data + ")");
+                    var xmlDoc = loadXMLStr(e.data);
+                    var cc = xmlDoc.documentElement.childNodes;
+                    var ccards = document.getElementById("commitycards");
+                    ccards.innerHTML = ""
+
+                    var holecards = document.getElementById("playerhole");
+                    holecards.innerHTML = ""
+                    
+                    for(i=0; i<cc.length; i++)
+                    {
+                        if(cc[i].nodeName == "aichip")
+                        {
+                            if(cc[i].childNodes[0]!=null)
+                                document.getElementById("aichip").innerHTML = cc[i].childNodes[0].nodeValue;
+                            else
+                                document.getElementById("aichip").innerHTML = ""
+                        }
+                        else if(cc[i].nodeName == "gambpool")
+                        {
+                            if(cc[i].childNodes[0]!=null)
+                                document.getElementById("gambpool").innerHTML = cc[i].childNodes[0].nodeValue;
+                            else
+                                document.getElementById("gambpool").innerHTML = ""
+                        }
+                        else if(cc[i].nodeName == "commitycards")
+                        {
+                            if(cc[i].childNodes[0]!=null)
+                            {
+                                img = new Image
+                                img.src = "http://127.0.0.1:8080/sourse?id=" + cc[i].childNodes[0].nodeValue + ".jpg";
+                                img.height = 105;
+                                img.width = 75;
+                                img.border = 0;
+                                ccards.appendChild(img)
+                            }                          
+                        }
+                        else if(cc[i].nodeName == "playerchip")
+                        {
+                            if(cc[i].childNodes[0]!=null)
+                                document.getElementById("playerchip").innerHTML = cc[i].childNodes[0].nodeValue;
+                            else
+                                document.getElementById("playerchip").innerHTML = ""
+                        }
+                        else if(cc[i].nodeName == "playerhole")
+                        {
+                            if(cc[i].childNodes[0]!=null)
+                            {
+                                img = new Image
+                                img.src = "http://127.0.0.1:8080/sourse?id=" + cc[i].childNodes[0].nodeValue + ".jpg";
+                                img.height = 105;
+                                img.width = 75;
+                                img.border = 0;
+                                holecards.appendChild(img)
+                            } 
+                        }
+                        else if(cc[i].nodeName == "prompt")
+                        {
+                            if(cc[i].childNodes[0]!=null)
+                                document.getElementById("prompt").innerHTML = cc[i].childNodes[0].nodeValue;
+                            else
+                                document.getElementById("prompt").innerHTML = ""
+                        }
+                    }
+                    flag = true
+                } 
+            };
+            
+            function send_comfirm() {
+                if(!flag)
+                {
+                    return
+                }
+                console.log("send_comfirm")
+                var bet = document.getElementById("bet").value;
+                if(bet == "" || isNaN(bet))
+                {
+                    console.log("null")
+                    document.getElementById("prompt").innerHTML = "请输入正确数值"
+                    return
+                }
+                var msg = "<root><bet>"+bet+"</bet><call>0</call><fold>0</fold></root>";
+                sock.send(msg)
+                flag = false
+            };
+
+            function send_call(){
+                if(!flag)
+                {
+                    return
+                }
+                console.log("send_call")
+                var msg = "<root><bet>0</bet><call>1</call><fold>0</fold></root>";
+                sock.send(msg)
+                flag = false
+            };
+
+            function send_fold(){
+                if(!flag)
+                {
+                    return
+                }
+                console.log("send_fold")
+                var msg = "<root><bet>0</bet><call>0</call><fold>1</fold></root>";
+                sock.send(msg)
+                flag = false
+            };
+
+            function send_restart(){
+                sock.send("")
+            }
+
+            function loadXMLStr(xmlFile){
+                try{
+                xmlDoc=new ActiveXObject("Microsoft.XMLDOM");
+                }catch(e){
+                    xmlDoc=document.implementation.createDocument("","",null);
+                }
+                try{
+                    xmlDoc.async=false;
+                    xmlDoc.loadXML(xmlFile);
+                }catch(e){
+                    var xmlhttp = new window.XMLHttpRequest(); 
+                    xmlhttp.overrideMimeType("text/xml; charset=utf-8");
+                    xmlhttp.open("GET","xml",false);  
+                    xmlhttp.send(null);
+                    xmlDoc = xmlhttp.responseXML;
+                }
+                
+                return xmlDoc;
+            };
+            
+        </script>
+</html>
